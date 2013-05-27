@@ -14,34 +14,31 @@
 #include <pthread.h>
 
 // =============================================================================
+//                           Прототипы функций
+// =============================================================================
+
+void * ThreadPWM(void *arg);
+
+// =============================================================================
 //                                Классы
 // =============================================================================
- void * ThreadPWM(void *arg);
 
 class CPWMCtrl
 {
 	friend  void * ThreadPWM(void *arg);
+	
 	protected: 
-	pthread_t m_Thread;
+		pthread_t m_Thread;
+		
 	private:
-		// Устройство порта
 		int m_Prc;
 		int m_Chan;
 		
 	public:
 		// Конструктор
 		CPWMCtrl();
-		
-		//int g_Val;
-		// Создание сонара
 		int Create   (int chan);
-		//
-		void Setdt(int prc);
-		
-		void Prnt(void);
-		
+		void Setdt(int prc);	
 };
-
-//void * ThreadPWM(void *arg);
 
 #endif // _PWM_H
