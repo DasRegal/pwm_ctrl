@@ -12,31 +12,23 @@
 #define _SPI_H
 
 // =============================================================================
-//                           Прототипы функций
-// =============================================================================
-
-void * ThreadPWM(void *arg);
-
-// =============================================================================
 //                                Классы
 // =============================================================================
 
-class CPWMCtrl
+class CSPI
 {
-	friend  void * ThreadPWM(void *arg);
-	
-	protected: 
-		pthread_t m_Thread;
-		
 	private:
-		int m_Prc;
-		int m_Chan;
+		int m_MISO;
+		int m_MOSI;
+		int m_CLK;
+		int m_us;
 		
 	public:
 		// Конструктор
-		CPWMCtrl();
-		int Create   (int chan);
-		void Setdt(int prc);	
+		CSPI();
+		void Init 		(int miso, int mosi, int clk);
+		void WriteByte	(int8_t byte);
+		void SetDelay	(int us);
 };
 
 #endif // _SPI_H
