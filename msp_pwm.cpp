@@ -26,6 +26,8 @@
 // =============================================================================
 //                           Глобальные переменные
 // =============================================================================
+	
+	CSPI spi;
 
 // =============================================================================
 //                             Прототипы функций
@@ -34,7 +36,6 @@
 void InitSPI2PWM(int miso, int mosi, int clk)
 {
 	spi.Init(miso, mosi, clk);
-	g_ChanelsSPI = 4;
 }
 
 void SetSPI2PWM(int* bufChan, char channels)
@@ -44,7 +45,7 @@ void SetSPI2PWM(int* bufChan, char channels)
 	
 	for (int i = 0; i < channels; i++, bufChan++)
 	{
-		spi.WriteByte(*bufChan & 0xFF);
 		spi.WriteByte(*bufChan >> 8);
+		spi.WriteByte(*bufChan & 0xFF);
 	}
 }

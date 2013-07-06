@@ -16,7 +16,7 @@
 //                           Глобальные переменные
 // =============================================================================
 
-	CSPI spi;
+	extern	CSPI spi;
 
 // =============================================================================
 //                                 Класс CSPI
@@ -56,7 +56,7 @@ void CSPI::Init (int miso, int mosi, int clk)
 	GPIOSet(m_MOSI);
 	GPIOClr(m_CLK);
 
-	m_us = 1000;
+	m_us = 300;
 }
 
 // =============================================================================
@@ -80,11 +80,11 @@ void CSPI::SetDelay(int us)
 /// \param  byte  Значение байта
 // =============================================================================
 
-void CSPI::WriteByte(int8_t byte)
+void CSPI::WriteByte(char byte)
 {
-	for (int i = 0; i < 8; i++, byte >>= 1)
+	for (int i = 0; i < 8; i++, byte <<= 1)
 	{
-		if (byte & 1) GPIOSet(m_MOSI);
+		if ((byte & 0x80) >> 7) GPIOSet(m_MOSI);
 		else		  GPIOClr(m_MOSI);
 
 		usleep(m_us);

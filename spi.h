@@ -27,7 +27,7 @@ class CSPI
 		// Конструктор
 		CSPI();
 		void Init 		(int miso, int mosi, int clk);
-		void WriteByte	(int8_t byte);
+		void WriteByte	(char byte);
 		void SetDelay	(int us);
 };
 
