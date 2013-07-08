@@ -1,22 +1,17 @@
-all: hello
+TARGET=$(shell basename `pwd`)
+SOURCES=$(wildcard *.cpp)
+OBJECTS=$(SOURCES:%.cpp=%.o)
 
-hello: main.o gpio.o pwm.o spi.o msp_pwm.o
-	g++ main.o gpio.o pwm.o spi.o msp_pwm.o -o hello -lpthread -lcurses
+CFLAGS=-lpthread -lcurses
+LDFLAGS=
 
-main.o: main.cpp
-	g++ -c main.cpp
+all: $(TARGET)
 
-gpio.o: gpio.cpp
-	g++ -c gpio.cpp
+$(OBJECTS): $(SOURCES)
 
-pwm.o: pwm.cpp
-	g++ -c pwm.cpp
-
-spi.o: spi.cpp
-	g++ -c spi.cpp
-
-msp_pwm.o: msp_pwm.cpp
-	g++ -c msp_pwm.cpp
-
+$(TARGET): $(OBJECTS)
+	$(CXX) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(CFLAGS)
 clean:
-	rm -rf *.o hello
+	$(RM) $(OBJECTS) $(TARGET)
+
+.PHONY: all clean
