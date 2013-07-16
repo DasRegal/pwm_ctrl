@@ -2,7 +2,7 @@ TARGET=$(shell basename `pwd`)
 SOURCES=$(wildcard *.cpp)
 OBJECTS=$(SOURCES:%.cpp=%.o)
 
-CFLAGS=-lpthread -lcurses
+CFLAGS=-lpthread -lcurses -lopencv_core -lopencv_imgproc -lopencv_highgui -lopencv_objdetect
 LDFLAGS=
 
 all: $(TARGET)
