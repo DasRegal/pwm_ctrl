@@ -145,9 +145,9 @@ double* find (CvCapture* capture, int pMin, int pMax, CvVideoWriter * wr)
 		xy[2]=0;
 		xy[3]=0;
 	}
-	// const char *windowName = "Window";
-	// cvNamedWindow(windowName, CV_WINDOW_AUTOSIZE);
-	// cvShowImage(windowName, frame);
+	const char *windowName = "Window";
+	cvNamedWindow(windowName, CV_WINDOW_AUTOSIZE);
+	cvShowImage(windowName, frame);
 
 	// const char *windowNameWB2 = "WindowWB2";
 	// cvNamedWindow(windowNameWB2, CV_WINDOW_AUTOSIZE);
