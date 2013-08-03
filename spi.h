@@ -11,6 +11,8 @@
 #ifndef _SPI_H
 #define _SPI_H
 
+#define		N_CS	10
+
 // =============================================================================
 //                                Классы
 // =============================================================================
@@ -22,13 +24,20 @@ class CSPI
 		int m_MOSI;
 		int m_CLK;
 		int m_us;
+		int m_CS[N_CS];
 		
 	public:
 		// Конструктор
 		CSPI();
 		void Init 		(int miso, int mosi, int clk);
 		void WriteByte	(char byte);
+		char ReadByte	(void);
 		void SetDelay	(int us);
+		int  InitCS		(int pin);
+		void SetCS		(int index);
+		void ClrCS		(int index);
 };
+
+extern	CSPI spi;
 
 #endif // _SPI_H

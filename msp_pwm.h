@@ -36,8 +36,12 @@ void InitSPI2PWM(int miso, int mosi, int clk);
 // Отправка значения ШИМ
 void SetSPI2PWM(int* bufChan, char channels);
 
+void SetSPI (int value, int chan);
+
 // =============================================================================
 //                          Внешние зависимости
 // =============================================================================
+
+extern int  chan_buf[5];
 
 #endif // _MSP_PWM_H

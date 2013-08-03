@@ -10,6 +10,7 @@
 
 #include "gpio.h"
 #include <stdio.h>
+#include <unistd.h>
 
 // =============================================================================
 ///
@@ -110,5 +111,57 @@ void GPIOClr  (int gpio)
 		rewind(fp);
 		fprintf(fp, "0");
 		fclose(fp);
+	}
+}
+
+// =============================================================================
+///
+///		                    Направление линии
+///
+// =============================================================================
+///	\param   dir  Направление линии
+// =============================================================================
+
+void GPIODir (int gpio, EGPIODir dir)
+{
+	FILE* fp;
+	fp = NULL;
+	char gpioFileName[256];
+
+	sprintf(gpioFileName, "/sys/class/gpio/gpio%d/direction", gpio);
+	if ((fp = fopen(gpioFileName, "rb+")) != NULL)
+	{
+		rewind(fp);
+		if (dir == DIR_IN) fprintf(fp, "in");
+		else fprintf(fp, "out");
+		fclose(fp);
+	}
+}
+
+// =============================================================================
+///
+///		                    Проверка уровня линии
+///
+// =============================================================================
+///	\param   gpio  Номер линии
+/// \return  	   Уровень линии
+// =============================================================================
+
+int GPIOGet (int gpio)
+{
+	FILE* fp;
+	fp = NULL;
+	char gpioFileName[256];
+	// char *buf[1];
+	char val;
+
+	sprintf(gpioFileName, "/sys/class/gpio/gpio%d/value", gpio);
+	if ((fp = fopen(gpioFileName, "rb+")) != NULL)
+	{
+		rewind(fp);
+		fread(&val, sizeof(char), 1, fp);
+		fclose(fp);
+		if (val == '0') return 0;
+		else return 1;
 	}
 }

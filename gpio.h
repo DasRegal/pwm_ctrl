@@ -11,6 +11,11 @@
 #ifndef _GPIO_H
 #define _GPIO_H
 
+enum EGPIODir
+{
+	DIR_IN 	= 0,
+	DIR_OUT = 1
+};
 // =============================================================================
 //                           Прототиаы функций
 // =============================================================================
@@ -21,5 +26,9 @@
 	void GPIOSet  (int gpio);
 	// Установка линии в "0"
 	void GPIOClr  (int gpio);
+	// Изменение направления линии
+	void GPIODir (int gpio, EGPIODir dir);
+	// Проверка уровня линии
+	int GPIOGet (int gpio);
 
 #endif // _GPIO_H

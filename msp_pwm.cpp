@@ -49,3 +49,17 @@ void SetSPI2PWM(int* bufChan, char channels)
 		spi.WriteByte(*bufChan & 0xFF);
 	}
 }
+
+void SetSPI (int value, int chan)
+{
+
+	spi.ClrCS(0);
+	spi.SetCS(0);
+	spi.ClrCS(0);
+
+	spi.WriteByte(chan);
+	spi.WriteByte(value >> 8);
+	spi.WriteByte(value & 0xFF);
+
+	spi.SetCS(0);
+}
