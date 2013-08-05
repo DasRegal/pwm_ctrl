@@ -8,20 +8,6 @@ int  chan_buf[5];
 
 void Armed(void)
 {
-	// #define		ROLL_SET(x) 	(chan_buf[0] = x * 10 + 1000 + 230)
-	// #define		PITCH_SET(x) 	(chan_buf[1] = x * 10 + 1000 + 230)
-	// #define 	THROTTLE_SET(x)	(chan_buf[2] = x * 10 + 1000 + 230)
-	// #define 	YAW_SET(x)		(chan_buf[3] = x * 10 + 1000 + 230)
-	// #define 	MODE_SET(x) 	(chan_buf[4] = x * 10 + 1000 + 230)
-
-
-	// SetSPI(FR_ROLL, 0);
-	// SetSPI(FR_PITCH, 1);
-	// SetSPI(0, 2);
-	// SetSPI(FR_YAW, 3);
-	// SetSPI(0, 4);
-	// SetSPI(100, 3);
-	// SetSPI(FR_YAW, 3);
 	ROLL_SET(FR_ROLL);
 	PITCH_SET(FR_PITCH);
 	THROTTLE_SET(0);

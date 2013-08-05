@@ -54,7 +54,7 @@ void CSPI::Init (int miso, int mosi, int clk)
 	m_CLK  = clk;
 
 	GPIOInit(m_MISO);
-	// GPIODir(m_MISO, DIR_IN);
+	GPIODir(m_MISO, DIR_IN);
 	GPIOInit(m_MOSI);
 	GPIOInit(m_CLK);
 
