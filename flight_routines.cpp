@@ -27,15 +27,11 @@ void Armed(void)
 void LiftUp(int throttle, char time, int alt)
 {
 	THROTTLE_SET(throttle);
-	//SetSPI2PWM(chan_buf, 5);
 	Delay(time);
 
-	// printf("Висим!!!\n");
-	MODE_SET(100);
-	printf("Режим.\n");
-	// YAW_SET(FR_YAW + 30);
-	THROTTLE_SET(alt);
-	//SetSPI2PWM(chan_buf, 5);
+	// MODE_SET(100);
+	// printf("Режим.\n");
+	// THROTTLE_SET(alt);
 	Delay(1);
 }
 
