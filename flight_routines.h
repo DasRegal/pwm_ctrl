@@ -16,8 +16,8 @@
 	#define 	MODE_SET(x) 	(SetSPI((x) * 10 + 1000 + 230, 4))
 
 #define		FR_ROLL		45
-#define		FR_PITCH	50
-#define		FR_YAW		51
+#define		FR_PITCH	54
+#define		FR_YAW		52
 
 void Armed(void);
 void LiftUp(int throttle, char time, int alt);
