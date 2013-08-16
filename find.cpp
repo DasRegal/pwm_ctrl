@@ -260,8 +260,8 @@ unsigned short int* find2 (IplImage* frame2)
 		}
 	}
 
-	if(xy[0]>0)//Поиск перпендикулярных линий.
-	{
+	// if(xy[0]>0)//Поиск перпендикулярных линий.
+	// {
 		class Vect///Ограничение на количество найденных линий!!! Может быть ошибка, если вдруг превысит.
 {
 public: int x[1000], y[1000];
@@ -274,7 +274,6 @@ public: int x[1000], y[1000];
 			}
 		}
 } Vec;
-
 
 		IplImage* dst=0; 
 		// хранилище памяти для хранения найденных линий
@@ -321,7 +320,7 @@ public: int x[1000], y[1000];
 			}
 		}
 
-		if (lines->total!=0 && countPer>6)
+		if (lines->total!=0 && countPer>4)
 		{
 			int MX=0,MY=0;
 			for(std::list<short unsigned int>::iterator i=MXX.begin();i!=MXX.end();i++)
@@ -333,7 +332,7 @@ public: int x[1000], y[1000];
 				MY+=(*i);
 			}
 			MX/=(lines->total*2); MY/=(lines->total*2);
-			const short int k2=10;
+			//const short int k2=10;
 
 			//Рисуем крестик
 			/*CvPoint* line=new CvPoint();
@@ -348,15 +347,16 @@ public: int x[1000], y[1000];
 			line[1].y=MY+k2;
 			cvLine( frame2, line[0], line[1], CV_RGB(0,255,0), 3, CV_AA, 0 );
 			*/
-			MXX.clear();
-			MYY.clear();
+			
 			xy[5]=1;
 		}
 
 		// освобождаем ресурсы
 		cvReleaseMemStorage(&storage);
 		cvReleaseImage(&dst);
-	}
+		MXX.clear();
+		MYY.clear();
+	// }
 	//----------------------------------------------------------------------------------------------------
 
 	return xy;
@@ -433,6 +433,7 @@ void getFloor (IplImage* floor, char* fname_floor, char* fname_marker)
 		}
 	}
 	getW=(getW-getF)/2+getF;
+	getB=(getF-getB)/4+getB;
 	W_B=getW-getB;
 	cvReleaseImage ( &frameflWB);
 	cvReleaseImage ( &framemWB);
