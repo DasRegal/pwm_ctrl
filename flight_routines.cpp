@@ -62,7 +62,7 @@ void LiftDown(int throttle, char time)
 	while(throttle > 0)
 	{
 
-		throttle -= 10;
+		throttle -= 7;
 		if (throttle < 40 )
 		{
 			throttle = 0;
@@ -70,17 +70,17 @@ void LiftDown(int throttle, char time)
 			break;
 		}
 		THROTTLE_SET(throttle);
-		for (int i = 0; i < 200; ++i)
+		for (int i = 0; i < 100; ++i)
 		{
 			usleep(1000);
 		}
-		throttle += 10;
+		throttle += 7;
 		THROTTLE_SET(throttle);
-		for (int i = 0; i < 200; ++i)
+		for (int i = 0; i < 100; ++i)
 		{
 			usleep(1000);
 		}
-		throttle -= 3;
+		throttle -= 1;
 		if (throttle < 40 )
 		{
 			throttle = 0;

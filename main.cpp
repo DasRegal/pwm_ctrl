@@ -38,6 +38,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include "mavlink/include/mavlink/v1.0/common/common.h"
+#include <ctime>
 
 using std::string;
 using namespace std;
@@ -489,6 +490,8 @@ void KeyDOWN(int* prc)
 		*prc = 0;
 }
 
+time_t now;
+
 int main(int argc, char const *argv[])
 {
 	if (argc == 1)
@@ -757,21 +760,18 @@ int main(int argc, char const *argv[])
 	//==========================================
 
 	// Для новой батареии - 68, старая - 74
-	int thr = 74;
+	int thr = 68;
 	// if ((argc > 1) && (strcmp(argv[1],"kt3") == 0 || strcmp(argv[1], "sonar") == 0 || strcmp(argv[1], "cam") == 0 || strcmp(argv[1], "up") == 0))
 	if ((argc > 1) && strcmp(argv[1],"test") && strcmp(argv[1],"arm"))
 	{
 		printf("Взлет\n");
 		
 
-		THROTTLE_SET(40);
-		Delay(1);
-		for (int i = 0; i < 500; ++i)
-		{
-			usleep(1000);
-		}
+		THROTTLE_SET(46);
+		Delay(2);
 		THROTTLE_SET(thr);
 		Delay(2);
+
 
 		////////////////////Получение изображения маркера. Должно быть вызвано однажды над кругом после старта.
 		if ((argc > 1) && (strcmp(argv[1], "cam") == 0))
@@ -795,7 +795,7 @@ int main(int argc, char const *argv[])
 		// Throttle, Time, Alt
 		// Для новой батареии Alt - 54, старая - 58
 
-		LiftUp(thr, 2, 58);
+		LiftUp(thr, 2, 54);
 		
 	}
 
@@ -1348,50 +1348,198 @@ int main(int argc, char const *argv[])
 	// 				ПОЛЕТ ВПЕРЕД
 	//==========================================
 		int asd = 0;
+		time_t dif;
 	if ((argc > 1) && !strcmp(argv[1], "kt3"))
 	{
-		printf("Полет вперед\n");
+		printf("Полет Г\n");
+
+		time_t diff = time(0);
+		now = time(0);
+
+		int diffUR = 0;
+		int diffUF = 0;
 
 		PITCH_SET(FR_PITCH - 10);
-		Delay(3);
-		PITCH_SET(FR_PITCH + 8);
-		Delay(1);
-		PITCH_SET(FR_PITCH);
+		while ((now - diff) < 20)
+		{
+			now = time(0);
 
-		ROLL_SET(FR_ROLL - 10);
-		Delay(3);
-		ROLL_SET(FR_ROLL + 8);
-		Delay(1);
-		ROLL_SET(FR_ROLL);
-		Delay(1);
-		
-		ROLL_SET(FR_ROLL + 10);
-		Delay(3);
-		ROLL_SET(FR_ROLL - 8);
-		Delay(1);
-		ROLL_SET(FR_ROLL);
+				int koef = 4;
+				// for (int i = 0; i < 10; ++i)
+				// {
+					serial_wait(fd);
+				// }
+				printf("Compass: %d Head: %d\t", compass, head);
+				if ((compass - head) < 0)
+				{
+					int kr = 1;
+					printf("Вправо YAW\t");
+					if ((int)(FR_YAW - (compass - head) * koef * kr) < 0)
+					{
+						YAW_SET(0);	
+					}
+					else
+					if ((int)(FR_YAW - (compass - head) * koef * kr) > 100)
+					{
+						YAW_SET(100);	
+					}
+					else YAW_SET(FR_YAW - (compass - head) * koef * kr);
+					// for (int i = 0; i < 50; ++i)
+					// {
+						usleep(1000);
+					// }
+					YAW_SET(FR_YAW);
+				}
+				else
+				if ((compass - head) > 0)	
+				{
+					int kl = 1;
+					printf("Влево YAW\t");
+					if ((int)(FR_YAW - (compass - head) * koef * kl) < 0)
+					{
+						YAW_SET(0);	
+					}
+					else
+					if ((int)(FR_YAW - (compass - head) * koef * kl) > 100)
+					{
+						YAW_SET(100);	
+					}
+					else YAW_SET(FR_YAW - (compass - head) * koef * kl);
+					// for (int i = 0; i < 50; ++i)
+					// {
+						usleep(1000);
+					// }
+					YAW_SET(FR_YAW);
+				}
+				else
+				{
+					printf("Середина YAW\t\n");
+				}
 
-		PITCH_SET(FR_PITCH + 10);
-		Delay(3);
-		PITCH_SET(FR_PITCH - 8);
-		Delay(1);
-		PITCH_SET(FR_PITCH);
+			float data3;
+			data3 = ReadSonar(R_SONAR);
+			printf("Data R: - %f ", data3);
+			printf("Разница R: %f\t", data3 - diffUR);
+			diffUR = data3;
+			if (data3 > 150 && data3 < 250)
+			{	
+				usleep(1000);
+			}
+			else
+			if (data3 < 150)
+			{
+				printf("Влево ");
+				// ROLL_SET(FR_ROLL - 10);
+				usleep(1000);
+				//Выравнивание
+				// ROLL_SET(FR_ROLL);
+			}
+			else
+			if (data3 > 250)
+			{
+				printf("Вправо\t");
+				// ROLL_SET(FR_ROLL + 10);
+				usleep(1000);
+				//Выравнивание
+				// ROLL_SET(FR_ROLL);
+			}
 
-		// YAW_SET(FR_YAW - 15);
-		// for (int i = 0; i < 800; ++i)
+			data3 = ReadSonar(F_SONAR);
+			printf("Data F: - %f ", data3);
+			printf("Разница F: %f", data3 - diffUF);
+			diffUF = data3;
+			if (data3 < 380)
+			{
+				printf("Посадка\n");
+				PITCH_SET(FR_PITCH + 10);
+				break;
+			}
+			else
+			{
+				usleep(1000);
+			}
+
+			printf("\n");
+
+		}
+
+		Delay(1);
+		PITCH_SET(FR_PITCH);	
+		// Disarmed();
+		// return 0;
+
+		// dif = time(0);
+		// PITCH_SET(FR_PITCH - 11);
+		// Delay(5);
+		// PITCH_SET(FR_PITCH + 9);
+		// Delay(1);
+		// PITCH_SET(FR_PITCH);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+		// dif = time(0);
+		// printf("Hover\n");
+		// Delay(2);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+
+
+		// dif = time(0);
+		// ROLL_SET(FR_ROLL - 6);
+		// Delay(3);
+		// ROLL_SET(FR_ROLL + 13);
+		// Delay(1);
+		// for (int i = 0; i < 500; ++i)
 		// {
 		// 	usleep(1000);
 		// }
-		// YAW_SET(FR_YAW);
-		// // YAW_SET(FR_YAW - 5);
+		// ROLL_SET(FR_ROLL);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
 
-		// serial_wait(fd);
-		// while (((head - compass) < 90) && (asd < 100))
+		// dif = time(0);
+		// printf("Hover\n");
+		// Delay(1);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+
+
+
+		// dif = time(0);
+		// ROLL_SET(FR_ROLL + 12);
+		// Delay(5);
+		// ROLL_SET(FR_ROLL - 6);
+		// Delay(1);
+		// for (int i = 0; i < 500; ++i)
 		// {
-		// 	asd++;
-		// 	serial_wait(fd);
-		// 	printf("Compass: %d\n", compass);	
+		// 	usleep(1000);
 		// }
+		// ROLL_SET(FR_ROLL);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+		// dif = time(0);
+		// printf("Hover\n");
+		// Delay(1);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+		// dif = time(0);
+		// PITCH_SET(FR_PITCH + 4);
+		// Delay(5);
+		// PITCH_SET(FR_PITCH - 7);
+		// Delay(1);
+		// PITCH_SET(FR_PITCH);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
+
+		// dif = time(0);
+		// printf("Hover\n");
+		// Delay(2);
+		// now = time(0);
+		// printf("Время: %d с\n", now - dif);
 	}
 
 	//==========================================
