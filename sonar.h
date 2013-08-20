@@ -20,6 +20,7 @@ class CSonar
 	private:
 		// Устройство порта
 		int	 m_Fd;
+		int  m_CS;
 	public:
 		// Конструктор
 		CSonar();
@@ -27,6 +28,12 @@ class CSonar
 		void Create   (char* portName);
 		// Чтение значения сонара
 		int ReadValue (void);
+		//
+		void SPIInitCS(int line);
+		//
+		int ReadSonar(int line);
 };
+
+	extern CSonar sonar;
 
 #endif // _SONAR_H

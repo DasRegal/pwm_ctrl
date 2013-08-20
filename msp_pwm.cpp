@@ -9,6 +9,7 @@
 //*****************************************************************************
 
 #include "msp_pwm.h"
+#include "main.h"
 #include "spi.h"
 #include <stdio.h>
 
@@ -29,6 +30,7 @@
 // =============================================================================
 	
 	CSPI spi;
+	static int g_CS_PWM;
 
 // =============================================================================
 //                             Прототипы функций
@@ -37,6 +39,12 @@
 void InitSPI2PWM(int miso, int mosi, int clk)
 {
 	spi.Init(miso, mosi, clk);
+}
+
+void InitPWM(void)
+{
+	g_CS_PWM = spi.InitCS(CS1);
+	printf("CS PWM %d\n", g_CS_PWM);
 }
 
 void SetSPI2PWM(int* bufChan, char channels)
@@ -65,13 +73,13 @@ void SetSPI (int value, int chan)
 		value = 0;
 		printf("Занижен ШИМ!\n");
 	}
-	spi.ClrCS(0);
-	spi.SetCS(0);
-	spi.ClrCS(0);
+	spi.ClrCS(g_CS_PWM);
+	spi.SetCS(g_CS_PWM);
+	spi.ClrCS(g_CS_PWM);
 
 	spi.WriteByte(chan);
 	spi.WriteByte(value >> 8);
 	spi.WriteByte(value & 0xFF);
 
-	spi.SetCS(0);
+	spi.SetCS(g_CS_PWM);
 }

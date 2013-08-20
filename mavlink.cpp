@@ -40,6 +40,8 @@ using namespace std;
 #define UINT16_MAX 0xffff
 #endif
 
+#define 	COMPASS_OFF
+
 int g_Compass = 0;
 int g_Head = 0;
 
@@ -450,10 +452,16 @@ void InitMavlink()
 	mavlink_msg_heartbeat_pack(mavlink_system.sysid, mavlink_system.compid, &msgg, system_type, autopilot_type, system_mode, custom_mode, system_state);
 	uint16_t len = mavlink_msg_to_send_buffer(bufg, &msgg);
 	write(fd, bufg, len);
-	// int head;
-	while(g_Compass == 0)	serial_wait();
-	g_Head = g_Compass;
-	printf("Head: %d\n", g_Head);
+	
+	#ifdef COMPASS_OFF
+		g_Head = g_Compass = 0;
+		printf("WARNING: Компасс отключен\n");
+	#else
+		printf("Компасс включен\n");
+		while(g_Compass == 0)	serial_wait();
+		g_Head = g_Compass;
+		printf("Head: %d\n", g_Head);
+	#endif
 }
 
 void CloseMavlink()

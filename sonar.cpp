@@ -10,12 +10,17 @@
 
 #include "sonar.h"
 #include "serial.h"
+#include "spi.h"
+#include "main.h"
+
 #include <stdio.h>
 #include <errno.h>
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdlib.h>
+
+	CSonar sonar;
 
 // =============================================================================
 //                                 Класс CSonar
@@ -29,7 +34,9 @@
 
 CSonar::CSonar()
 {
-
+	// SPIInitCS(CS2);
+	m_CS = spi.InitCS(CS2);
+	printf("CS SONAR %d\n", m_CS);
 }
 
 // =============================================================================
@@ -77,4 +84,24 @@ int CSonar::ReadValue(void)
 	read (m_Fd, buf, 4);
 	buf[4] = 0;
 	return atoi(buf);
+}
+
+void CSonar::SPIInitCS(int line)
+{
+	m_CS = spi.InitCS(line);
+}
+
+int CSonar::ReadSonar(int line)
+{
+	int val;
+	spi.ClrCS(m_CS);
+	spi.WriteByte(line);
+	val = spi.ReadByte();
+	spi.SetCS(m_CS);
+
+	float k;
+	if (line == SONAR1) val *= 5.8;
+	else val = val * 1.55 + 2.4;
+	
+	return val;
 }

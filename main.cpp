@@ -11,38 +11,12 @@
 
 #include <unistd.h>
 #include <stdio.h>
-#include <curses.h>
 #include <math.h>
 #include <iostream>
 
-#define		SONAR1	0
-#define		R_SONAR	1
-#define		F_SONAR	2
-#define 	L_SONAR	3
-#define 	B_SONAR	4
-#define _USE_MATH_DEFINES
+#define 	_USE_MATH_DEFINES
 
-int FlyProfile(float);
 
- // 27 вывод
-#define MISO 88
-// 30 вывод
-#define MOSI 114
-// 18 вывод
-#define CLK 115
-// 34 вывод
-#define CS1	105
-// 31 вывод
-#define CS2	87
-
-int zgyro;
-
-int* g_Prc;
-int g_Prc1;
-int g_Prc2;
-int g_Prc3;
-int g_Prc4;
-int g_Prc5;
 
 //-------------------Функция проверки существования файла---------------------------------------------
 bool exists(const char *fname)
@@ -56,60 +30,22 @@ bool exists(const char *fname)
 	return false;
 }
 //----------------------------------------------------------------------------------------------------
-	
-int cs2 = spi.InitCS(CS1);
-int cs1 = spi.InitCS(CS2);
-
-float ReadSonar(int line)
-{
-	int val;
-	spi.ClrCS(cs1);
-	spi.WriteByte(line);
-	val = spi.ReadByte();
-	spi.SetCS(cs1);
-
-	float k;
-	if (line == SONAR1) val *= 5.8;
-	else val = val * 1.55 + 2.4;
-	
-	return val;
-}
 
 void Init(void)
 {
-	g_Prc1 = 50;
-	g_Prc2 = 50;
-	g_Prc3 = 0;
-	g_Prc4 = 50;
-	g_Prc5 = 50;
-
 	spi.Init(MISO, MOSI, CLK);
+	InitPWM();
 	InitMavlink();
-}
-
-void KeyUP(int* prc)
-{
-	*prc += 10;
-	if(*prc > 100)
-		*prc = 100;
-		
-}
-
-void KeyDOWN(int* prc)
-{
-	*prc -= 10;
-	if(*prc < 0)
-		*prc = 0;
 }
 
 time_t now;
 
 int main(int argc, char const *argv[])
-{
-
+{	
 	if (argc == 1)
 	{
 		printf("No params\n");
+		usleep(32000);
 		return 1;
 	}
 
@@ -304,9 +240,9 @@ int main(int argc, char const *argv[])
 	if (thr > 74)
 	{
 		thr = 80;
-		printf("Превышение тяги!\n");
+		printf("WARNING: Превышение тяги!\n");
 	}
-	float data;
+	int data;
 	// if ((argc > 1) && (strcmp(argv[1],"kt3") == 0 || strcmp(argv[1], "sonar") == 0 || strcmp(argv[1], "cam") == 0 || strcmp(argv[1], "up") == 0))
 	if ((argc > 1) && strcmp(argv[1],"test") && strcmp(argv[1],"arm"))
 	{
@@ -346,14 +282,14 @@ int main(int argc, char const *argv[])
 		// int flyThr = 46;
 		// int max;
 		// max = flyThr;
-		// float curh;
-		// curh = ReadSonar(SONAR1);
-		// printf("Высота: %f\n", curh);
-		// float dat;
+		// int curh;
+		// curh = sonar.ReadSonar(SONAR1);
+		// printf("Высота: %d\n", curh);
+		// int dat;
 		// usleep(1000);
 		// while (curh < 100)
 		// {
-		// 	dat = ReadSonar(SONAR1);
+		// 	dat = sonar.ReadSonar(SONAR1);
 		// 	// printf("%d\t", i);
 		// 	// printf("%d\n", FlyProfile(i));
 		// 	if ((dat - curh) < 1)
@@ -372,7 +308,7 @@ int main(int argc, char const *argv[])
 		// 	}
 		// 	if (flyThr > thr) flyThr = thr;
 		// 	printf("Fly throttle: %d\t", flyThr);
-		// 	printf("Sonar: %f\n", dat);
+		// 	printf("Sonar: %d\n", dat);
 		// 	THROTTLE_SET(flyThr);
 		// 	curh = dat;
 		// 	usleep(10000);
@@ -398,11 +334,11 @@ int main(int argc, char const *argv[])
 		
 		//ВЗЛЕТ ПО ПОКАЗАНИЯМ НИЖНЕГО СОНАРА (НЕ РАБОТАЕТ, Т.К. ВЫДАЕТСЯ НЕПОНЯТНАЯ ОШИБКА)
 		
-		// data = ReadSonar(SONAR1);
+		// data = sonar.ReadSonar(SONAR1);
 		// while (data < 110)
 		// {
 		
-		// 	data = ReadSonar(SONAR1);
+		// 	data = sonar.ReadSonar(SONAR1);
 		
 		// 	// for (int i = 0; i < 10; ++i)
 		// 	// 	{
@@ -420,21 +356,21 @@ int main(int argc, char const *argv[])
 	//==========================================
 	if ((argc > 1) && !strcmp(argv[1], "test"))
 	{
-		float data;
+		int data;
 		int asd = 0;
 		while(asd < 1000)
 		{
 			asd++;
-			data = ReadSonar(SONAR1);
-			printf("Нижний сонар: - %f : ", data);
-			data = ReadSonar(L_SONAR);
-			printf("Левый сонар: - %f\n", data);
-			data = ReadSonar(R_SONAR);
-			printf("Правый сонар: - %f : ", data);
-			data = ReadSonar(F_SONAR);
-			printf("Передний сонар: - %f : ", data);
-			data = ReadSonar(B_SONAR);
-			printf("Задний сонар: - %f : ", data);
+			data = sonar.ReadSonar(SONAR1);
+			printf("Нижний сонар: - %d : ", data);
+			data = sonar.ReadSonar(L_SONAR);
+			printf("Левый сонар: - %d\n", data);
+			data = sonar.ReadSonar(R_SONAR);
+			printf("Правый сонар: - %d : ", data);
+			data = sonar.ReadSonar(F_SONAR);
+			printf("Передний сонар: - %d : ", data);
+			data = sonar.ReadSonar(B_SONAR);
+			printf("Задний сонар: - %d : ", data);
 			for (int i = 0; i < 10; ++i)
 			{
 				usleep(1000);
@@ -494,7 +430,7 @@ int main(int argc, char const *argv[])
 		////////////////////////////////////////////////////////////////////////////////////////////////////
 
 		printf("Полет по камере и сонарам\n");
-		float data;
+		int data;
 		int dy = 20;
 		bool isDownCam;
 		bool isOnSonar = true;
@@ -511,8 +447,8 @@ int main(int argc, char const *argv[])
 		while (1)
 		{
 
-			// data = ReadSonar(SONAR1);
-			// printf("Высота: - %f \t", data);
+			// data = sonar.ReadSonar(SONAR1);
+			// printf("Высота: - %d \t", data);
 			// if (data > 100 && data < 150)
 			// {	
 			// }
@@ -665,8 +601,8 @@ int main(int argc, char const *argv[])
 
 				if (isOnSonar)
 				{
-					data = ReadSonar(R_SONAR);
-					printf("Data R: - %f \t", data);
+					data = sonar.ReadSonar(R_SONAR);
+					printf("Data R: - %d \t", data);
 					if (data > 150 && data < 250)
 					{	
 						// ROLL_SET(FR_ROLL);
@@ -879,12 +815,12 @@ int main(int argc, char const *argv[])
 	if ((argc > 1) && !strcmp(argv[1], "sonar"))
 	{	
 		printf("Полет по сонарам\n");
-		float data;
+		int data;
 		int dy = 5;
 		while(1)
 		{
-			data = ReadSonar(R_SONAR);
-			printf("Data R: - %f \t", data);
+			data = sonar.ReadSonar(R_SONAR);
+			printf("Data R: - %d \t", data);
 			if (data > 150 && data < 250)
 			{	
 				// ROLL_SET(FR_ROLL);
@@ -929,8 +865,8 @@ int main(int argc, char const *argv[])
 				//Выравнивание
 				ROLL_SET(FR_ROLL);
 			}
-			data = ReadSonar(F_SONAR);
-			printf("Data F: - %f \t", data);
+			data = sonar.ReadSonar(F_SONAR);
+			printf("Data F: - %d \t", data);
 			if (data <= 250)
 			{
 				PITCH_SET(FR_PITCH + 4);
@@ -987,7 +923,7 @@ int main(int argc, char const *argv[])
 			{
 				FR_PITCH - 5;
 			}
-			printf("Sonar: %f\n", ReadSonar(SONAR1));
+			printf("Sonar: %d\n", sonar.ReadSonar(SONAR1));
 			int koef = 4;
 			// for (int i = 0; i < 10; ++i)
 			// {
@@ -1048,10 +984,10 @@ int main(int argc, char const *argv[])
 				printf("Середина YAW\t\n");
 			}
 
-			float data3;
-			data3 = ReadSonar(R_SONAR);
-			printf("Data R: - %f ", data3);
-			printf("Разница R: %f\t", data3 - diffUR);
+			int data3;
+			data3 = sonar.ReadSonar(R_SONAR);
+			printf("Data R: - %d ", data3);
+			printf("Разница R: %d\t", data3 - diffUR);
 			diffUR = data3;
 			if (data3 > 150 && data3 < 250)
 			{	
@@ -1082,9 +1018,9 @@ int main(int argc, char const *argv[])
 				// ROLL_SET(FR_ROLL);
 			}
 
-			data3 = ReadSonar(F_SONAR);
-			printf("Data F: - %f ", data3);
-			printf("Разница F: %f", data3 - diffUF);
+			data3 = sonar.ReadSonar(F_SONAR);
+			printf("Data F: - %d ", data3);
+			printf("Разница F: %d", data3 - diffUF);
 			diffUF = data3;
 			if (data3 < 200)
 			{
@@ -1122,9 +1058,9 @@ int main(int argc, char const *argv[])
 //		LiftDown(thr, 1);
 		MODE_SET(0);
 
-		while(thr > 40 && ReadSonar(SONAR1) > 40)
+		while(thr > 40 && sonar.ReadSonar(SONAR1) > 40)
 		{
-			printf("Высота: %f, ", ReadSonar(SONAR1));
+			printf("Высота: %d, ", sonar.ReadSonar(SONAR1));
 			thr -= 7;
 			printf("%d, ", thr);
 			THROTTLE_SET(thr);
@@ -1155,149 +1091,7 @@ int main(int argc, char const *argv[])
 	if (argc > 1 && strcmp(argv[1], "arm") == 0)
 	{
 		printf("Ручной режим\n");
-		initscr();	
-		raw();
-		keypad(stdscr, TRUE);
-		noecho();
-		
-		printw("GO!");
-	
-		bool loop;
-		loop = true;
-		char ch;
-		int chan;
-		chan = 1;
-		g_Prc = &g_Prc1;
-		int g_chan[4];
-		// ROLL
-		g_chan[0] = 50;
-		// PITCH
-		g_chan[1] = 50;
-		// THROTTLE
-		g_chan[2] = 0;
-		// YAW
-		g_chan[3] = 50;
-		while( loop == true)
-		{
-			ch = getch();
-			switch (ch)
-			{
-				// case 'w': KeyUP(g_Prc); printw("%d ", *g_Prc); break;
-				// case 's': KeyDOWN(g_Prc); printw("%d ", *g_Prc); break;
-				case 'w': 
-				{
-					g_chan[2] += 10;
-					if (g_chan[2] >= 100) g_chan[2] = 100;
-					printw("T:%d ", g_chan[2]);
-					THROTTLE_SET(g_chan[2]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				case 's':
-				{
-					g_chan[2] -= 10;
-					if (g_chan[2] <= 0) g_chan[2] = 0;
-					printw("T:%d ", g_chan[2]);
-					THROTTLE_SET(g_chan[2]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				case 'a': 
-				{
-					g_chan[0] -= 1;
-					if (g_chan[0] <= 0) g_chan[0] = 0;
-					printw("Y:%d ", g_chan[0]);
-					YAW_SET(g_chan[0]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-					
-				}
-				case 'd':
-				{
-					g_chan[0] += 1;
-					if (g_chan[0] >= 100) g_chan[0] = 100;
-					printw("Y:%d ", g_chan[0]);
-					YAW_SET(g_chan[0]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				
-				case 'k': 
-				{
-					g_chan[1] += 1;
-					if (g_chan[1] >= 100) g_chan[1] = 100;
-					printw("P:%d ", g_chan[1]);
-					PITCH_SET(g_chan[1]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				case 'i':
-				{
-					g_chan[1] -= 1;
-					if (g_chan[1] <= 0) g_chan[1] = 0;
-					printw("P:%d ", g_chan[1]);
-					PITCH_SET(g_chan[1]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				case 'j': 
-				{
-					g_chan[3] -= 1;
-					if (g_chan[3] <= 0) g_chan[3] = 0;
-					printw("R:%d ", g_chan[3]);
-					ROLL_SET(g_chan[3]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-					
-				}
-				case 'l':
-				{
-					g_chan[3] += 1;
-					if (g_chan[3] >= 100) g_chan[3] = 100;
-					printw("R:%d ", g_chan[3]);
-					ROLL_SET(g_chan[3]);
-					//SetSPI2PWM(chan_buf, 5);
-					break;
-				}
-				case 'f': printw("Mode stabilize. "); MODE_SET(0);   break;
-				case 'g': printw("Mode Althold. "); MODE_SET(100); break;
-				case 'z': printw("ThrUP. "); THROTTLE_SET(100); /*SetSPI2PWM(chan_buf, 5);*/ break;
-				case 'c': printw("ThrDOWN. "); THROTTLE_SET(0); /*SetSPI2PWM(chan_buf, 5);*/ break;
-				case '1': printw("Roll: "); chan = 1; break;
-				case '2': printw("Pitch: "); chan = 2; break;
-				case '3': printw("Throttle: "); chan = 3; break;
-				case '4': printw("Yaw: "); chan = 4; break;
-				case '5': printw("Mode: "); chan = 5; break;
-				case '[': printw("Start... "); THROTTLE_SET(0); YAW_SET(100); /*SetSPI2PWM(chan_buf, 5);*/ Delay(4); YAW_SET(50); /*SetSPI2PWM(chan_buf, 5);*/ printw("Ok. "); break;
-				case ']': printw("Stop... "); THROTTLE_SET(0); YAW_SET(0); /*SetSPI2PWM(chan_buf, 5);*/ Delay(4); YAW_SET(50); /*SetSPI2PWM(chan_buf, 5);*/ printw("Ok. "); break;
-				case 'r': {
-						printw("Reset... ");
-						ROLL_SET(50);
-						PITCH_SET(50);
-						THROTTLE_SET(0);
-						YAW_SET(50);
-						MODE_SET(0);
-						//SetSPI2PWM(chan_buf, 5);
-						printw("Ok. ");
-						break;
-				}
-				case 'q':
-				case 'Q':loop = false;
-			}
-			
-			switch (chan)
-			{
-				//case 1: g_Prc = &g_Prc1; ROLL_SET(*g_Prc); break;
-				//case 2: g_Prc = &g_Prc2; PITCH_SET(*g_Prc); break;
-				//case 3: g_Prc = &g_Prc3; THROTTLE_SET(*g_Prc); break;
-				//case 4: g_Prc = &g_Prc4; YAW_SET(*g_Prc); break;
-				//case 5: g_Prc = &g_Prc5; MODE_SET(*g_Prc); break;
-			}
-			//SetSPI2PWM(chan_buf, 5);
-		}
-		refresh();
-		getch();
-		endwin();
+		ArmMode();
 	}
 
 	//==========================================
@@ -1341,7 +1135,7 @@ void Delay(int time)
 	sleep(time);
 }
 
-int FlyProfile(float h)
+int FlyProfile(int h)
 {
 	float norm_deg;
 	float deg;
