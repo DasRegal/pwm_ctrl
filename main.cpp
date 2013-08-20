@@ -1,261 +1,28 @@
-#include <unistd.h>
+#include "main.h"
 #include "gpio.h"
-#include <stdlib.h>
-#include <stdio.h>
 #include "pwm.h"
 #include "msp_pwm.h"
-#include "cd74ac153.h"
 #include "sonar.h"
-#include <string.h>
 #include "flight_routines.h"
-#include "main.h"
 #include "spi.h"
-
+#include "mavlink.h"
 #include "find.h"
 #include "define.h"
 
+#include <unistd.h>
+#include <stdio.h>
 #include <curses.h>
+#include <math.h>
 #include <iostream>
-#include <ctime>
-
-// #include "mavlink/include/mavlink/v1.0/common/mavlink.h"
-#include "mavlink/include/mavlink/v1.0/common/mavlink.h"
-#include "mavlink/include/mavlink/v1.0/mavlink_types.h"
-
-// Standard includes
-#include <cstdlib>
-#include <cmath>
-#include <inttypes.h>
-#include <fstream>
-// Serial includes
-#include <fcntl.h>   /* File control definitions */
-#include <errno.h>   /* Error number definitions */
-#include <termios.h> /* POSIX terminal control definitions */
-#ifdef __linux
-#include <sys/ioctl.h>
-#endif
-// Latency Benchmarking
-#include <sys/time.h>
-#include <time.h>
-#include "mavlink/include/mavlink/v1.0/common/common.h"
-#include <ctime>
-
-using std::string;
-using namespace std;
-struct timeval tv;		  ///< System time
-int serial_compid = 0;
-bool silent = false;              ///< Wether console output should be enabled
-bool verbose = false;             ///< Enable verbose output
-bool debug = false;               ///< Enable debug functions and output
-int fd;
-
-// Settings
-//int sysid = 42;             ///< The unique system id of this MAV, 0-127. Has to be consistent across the system
-int sysid = 1;             ///< The unique system id of this MAV, 0-127. Has to be consistent across the system
-
-//int compid = 110;
-int compid = MAV_COMP_ID_IMU;
-
-/////////////////----------------------
-mavlink_system_t mavlink_system;
- 
- 
-// Define the system type, in this case an airplane
-uint8_t system_type = MAV_TYPE_FIXED_WING;
-uint8_t autopilot_type = MAV_AUTOPILOT_GENERIC;
-
-uint8_t system_mode = MAV_MODE_PREFLIGHT; ///< Booting up
-uint32_t custom_mode = 0;                 ///< Custom mode, can be defined by user/adopter
-uint8_t system_state = MAV_STATE_STANDBY; ///< System ready for flight
- 
-// Initialize the required buffers
-mavlink_message_t msgg;
-uint8_t bufg[MAVLINK_MAX_PACKET_LEN];
-/////////////////----------------------
-int open_port(const char* port)
-{
-	int fd; /* File descriptor for the port */
-	
-	// Open serial port
-	// O_RDWR - Read and write
-	// O_NOCTTY - Ignore special chars like CTRL-C
-	fd = open(port, O_RDWR | O_NOCTTY | O_NDELAY);
-	if (fd == -1)
-	{
-		/* Could not open the port. */
-		return(-1);
-	}
-	else
-	{
-		fcntl(fd, F_SETFL, 0);
-	}
-	
-	return (fd);
-}
-
-bool setup_port(int fd, int baud, int data_bits, int stop_bits, bool parity, bool hardware_control)
-{
-	//struct termios options;
-	
-	struct termios  config;
-	if(!isatty(fd))
-	{
-		fprintf(stderr, "\nERROR: file descriptor %d is NOT a serial port\n", fd);
-		return false;
-	}
-	if(tcgetattr(fd, &config) < 0)
-	{
-		fprintf(stderr, "\nERROR: could not read configuration of fd %d\n", fd);
-		return false;
-	}
-	//
-	// Input flags - Turn off input processing
-	// convert break to null byte, no CR to NL translation,
-	// no NL to CR translation, don't mark parity errors or breaks
-	// no input parity check, don't strip high bit off,
-	// no XON/XOFF software flow control
-	//
-	config.c_iflag &= ~(IGNBRK | BRKINT | ICRNL |
-	                    INLCR | PARMRK | INPCK | ISTRIP | IXON);
-	//
-	// Output flags - Turn off output processing
-	// no CR to NL translation, no NL to CR-NL translation,
-	// no NL to CR translation, no column 0 CR suppression,
-	// no Ctrl-D suppression, no fill characters, no case mapping,
-	// no local output processing
-	//
-	//config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
-	  //                   ONOCR | ONOEOT| OFILL | OLCUC | OPOST);
-	config.c_oflag &= ~(OCRNL | ONLCR | ONLRET |
-	                     ONOCR | OFILL | OLCUC | OPOST);
-
-	//
-	// No line processing:
-	// echo off, echo newline off, canonical mode off,
-	// extended input processing off, signal chars off
-	//
-	config.c_lflag &= ~(ECHO | ECHONL | ICANON | IEXTEN | ISIG);
-	//
-	// Turn off character processing
-	// clear current char size mask, no parity checking,
-	// no output processing, force 8 bit input
-	//
-	config.c_cflag &= ~(CSIZE | PARENB);
-	config.c_cflag |= CS8;
-	//
-	// One input byte is enough to return from read()
-	// Inter-character timer off
-	//
-	config.c_cc[VMIN]  = 1;
-	config.c_cc[VTIME] = 10; // was 0
-	
-	// Get the current options for the port
-	//tcgetattr(fd, &options);
-	
-	switch (baud)
-	{
-		case 1200:
-			if (cfsetispeed(&config, B1200) < 0 || cfsetospeed(&config, B1200) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-		case 1800:
-			cfsetispeed(&config, B1800);
-			cfsetospeed(&config, B1800);
-			break;
-		case 9600:
-			cfsetispeed(&config, B9600);
-			cfsetospeed(&config, B9600);
-			break;
-		case 19200:
-			cfsetispeed(&config, B19200);
-			cfsetospeed(&config, B19200);
-			break;
-		case 38400:
-			if (cfsetispeed(&config, B38400) < 0 || cfsetospeed(&config, B38400) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-		case 57600:
-			if (cfsetispeed(&config, B57600) < 0 || cfsetospeed(&config, B57600) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-		case 115200:
-			if (cfsetispeed(&config, B115200) < 0 || cfsetospeed(&config, B115200) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-
-		// These two non-standard (by the 70'ties ) rates are fully supported on
-		// current Debian and Mac OS versions (tested since 2010).
-		case 460800:
-			if (cfsetispeed(&config, 460800) < 0 || cfsetospeed(&config, 460800) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-		case 921600:
-			if (cfsetispeed(&config, 921600) < 0 || cfsetospeed(&config, 921600) < 0)
-			{
-				fprintf(stderr, "\nERROR: Could not set desired baud rate of %d Baud\n", baud);
-				return false;
-			}
-			break;
-		default:
-			fprintf(stderr, "ERROR: Desired baud rate %d could not be set, aborting.\n", baud);
-			return false;
-			
-			break;
-	}
-	
-	//
-	// Finally, apply the configuration
-	//
-	if(tcsetattr(fd, TCSAFLUSH, &config) < 0)
-	{
-		fprintf(stderr, "\nERROR: could not set configuration of fd %d\n", fd);
-		return false;
-	}
-	return true;
-}
-
-void close_port(int fd)
-{
-	close(fd);
-}
-
-// Дефайны
-#define MAVLINK_OFFBOARD_CONTROL_MODE_NONE 0
-#define MAVLINK_OFFBOARD_CONTROL_MODE_RATES 1
-#define MAVLINK_OFFBOARD_CONTROL_MODE_ATTITUDE 2
-#define MAVLINK_OFFBOARD_CONTROL_MODE_VELOCITY 3
-#define MAVLINK_OFFBOARD_CONTROL_MODE_POSITION 4
-#define MAVLINK_OFFBOARD_CONTROL_FLAG_ARMED 0x10
-#ifndef INT16_MAX
-#define INT16_MAX 0x7fff
-#endif
-#ifndef INT16_MIN
-#define INT16_MIN (-INT16_MAX - 1)
-#endif
-#ifndef UINT16_MAX
-#define UINT16_MAX 0xffff
-#endif
 
 #define		SONAR1	0
 #define		R_SONAR	1
 #define		F_SONAR	2
-#define 	SONAR4	3
-#define 	SONAR5	4
+#define 	L_SONAR	3
+#define 	B_SONAR	4
+#define _USE_MATH_DEFINES
+
+int FlyProfile(float);
 
  // 27 вывод
 #define MISO 88
@@ -268,162 +35,7 @@ void close_port(int fd)
 // 31 вывод
 #define CS2	87
 
-int compass;
 int zgyro;
-
-int serial_wait(int serial_fd)
-{
-
-	
-	int fd = serial_fd;
-	
-	mavlink_status_t lastStatus;
-	lastStatus.packet_rx_drop_count = 0;
-	
-	
-	// mavlink_msg_heartbeat_pack(mavlink_system.sysid, mavlink_system.compid, &msgg, system_type, autopilot_type, system_mode, custom_mode, system_state);
-	// uint16_t len = mavlink_msg_to_send_buffer(bufg, &msgg);
-	// write(fd, bufg, len);
-	
-	// Blocking wait for new data
-	while (1)
-	{
-		//if (debug) printf("Checking for new data on serial port\n");
-		// Block until data is available, read only one byte to be able to continue immediately
-		//char buf[MAVLINK_MAX_PACKET_LEN];
-		uint8_t cp;
-		mavlink_message_t message;
-		mavlink_status_t status;
-		uint8_t msgReceived = false;
-		//tcflush(fd, TCIFLUSH);
-		if (read(fd, &cp, 1) > 0)
-		{
-			// Check if a message could be decoded, return the message in case yes
-			msgReceived = mavlink_parse_char(MAVLINK_COMM_1, cp, &message, &status);
-			if (lastStatus.packet_rx_drop_count != status.packet_rx_drop_count)
-			{
-				if (verbose || debug) printf("ERROR: DROPPED %d PACKETS\n", status.packet_rx_drop_count);
-				if (debug)
-				{
-					unsigned char v=cp;
-					fprintf(stderr,"%02x ", v);
-				}
-			}
-			lastStatus = status;
-		}
-		else
-		{
-			if (!silent) fprintf(stderr, "ERROR: Could not read from fd %d\n", fd);
-		}
-		
-		// If a message could be decoded, handle it
-		if(msgReceived)
-		{
-			//if (verbose || debug) std::cout << std::dec << "Received and forwarded serial port message with id " << static_cast<unsigned int>(message.msgid) << " from system " << static_cast<int>(message.sysid) << std::endl;
-			
-			// Do not send images over serial port
-			
-			// DEBUG output
-			if (debug)
-			{
-				fprintf(stderr,"Received serial data: ");
-				unsigned int i;
-				uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-				unsigned int messageLength = mavlink_msg_to_send_buffer(buffer, &message);
-				if (messageLength > MAVLINK_MAX_PACKET_LEN)
-				{
-					fprintf(stderr, "\nFATAL ERROR: MESSAGE LENGTH IS LARGER THAN BUFFER SIZE\n");
-				}
-				else
-				{
-					for (i=0; i<messageLength; i++)
-					{
-						unsigned char v=buffer[i];
-						fprintf(stderr,"%02x ", v);
-					}
-					fprintf(stderr,"\n");
-				}
-			}
-			
-			if (verbose || debug)
-				printf("Received message from serial with ID #%d (sys:%d|comp:%d):\n", message.msgid, message.sysid, message.compid);
-			
-			/* decode and print */
-
-
-			// For full MAVLink message documentation, look at:
-			// https://pixhawk.ethz.ch/mavlink/
-
-			// Only print every n-th message
-			static unsigned int scaled_imu_receive_counter = 0;
-			switch (message.msgid)
-			{
-				// case MAVLINK_MSG_ID_RAW_IMU:
-				// {
-				// 	/*if (scaled_imu_receive_counter % 50 == 0)
-				// 	{*/
-						
-						// mavlink_raw_imu_t imu;
-						// mavlink_msg_raw_imu_decode(&message, &imu);
-						// zgyro = imu.zgyro;
-						// printf("Got message RAW_IMU\n");
-						// printf("\t xacc: %d\n", imu.xacc);
-						// printf("\t yacc: %d\n", imu.yacc);
-						// printf("\t zacc: %d\n", imu.zacc);
-						// printf("\t xgyro: %d\n", imu.xgyro);
-						// printf("\t ygyro: %d\n", imu.ygyro);
-						// printf("\t zgyro: %d\n", imu.zgyro);
-						// printf("\t xmag: %d\n", imu.xmag);
-						// printf("\t ymag: %d\n", imu.ymag);
-						// printf("\t zmag: %d\n", imu.zmag);
-
-				// // 		printf("Got message HIGHRES_IMU (spec: https://pixhawk.ethz.ch/mavlink/#HIGHRES_IMU)\n");
-				// // 		printf("\t time: %llu\n", imu.time_usec);
-				// // 		printf("\t acc  (NED):\t% f\t% f\t% f (m/s^2)\n", imu.xacc, imu.yacc, imu.zacc);
-				// // 		printf("\t gyro (NED):\t% f\t% f\t% f (rad/s)\n", imu.xgyro, imu.ygyro, imu.zgyro);
-				// // 		printf("\t mag  (NED):\t% f\t% f\t% f (Ga)\n", imu.xmag, imu.ymag, imu.zmag);
-				// // 		printf("\t baro: \t %f (mBar)\n", imu.abs_pressure);
-				// // 		printf("\t altitude: \t %f (m)\n", imu.pressure_alt);
-				// // 		printf("\t temperature: \t %f C\n", imu.temperature);
-				// // 		printf("\n");
-					// }
-				// // 	// scaled_imu_receive_counter++;
-				// // }
-				// // case MAVLINK_MSG_ID_SCALED_PRESSURE:
-				// // {
-				// // 	mavlink_scaled_pressure_t sp;
-				// // 	mavlink_msg_scaled_pressure_decode(&message, &sp);
-
-				// // 	printf("\t press_abs: %f\n", sp.press_abs);
-				// // 	printf("\t press_diff: %f\n", sp.press_diff);
-				// }
-				case MAVLINK_MSG_ID_VFR_HUD:
-				{
-					// if (scaled_imu_receive_counter % 50 == 0)
-					// {
-						// printf("Got message VFR_HUD\n");
-						mavlink_vfr_hud_t vfr;
-						mavlink_msg_vfr_hud_decode(&message, & vfr);
-						compass = vfr.heading;
-						return 0;
-						// printf("\t heading: %d\n", vfr.heading);
-						// printf("\t alt: %f\n", vfr.alt);
-					// }
-				// 	// scaled_imu_receive_counter++;
-				}
-				// // case MAVLINK_MSG_ID_GLOBAL_POSITION_INT:
-				// // {
-				// // 	mavlink_global_position_int_t gp;
-				// // 	mavlink_msg_global_position_int_decode(&message, &gp);
-				// // 	printf("\t vx %d\n", gp.vx);
-				// // }
-				// break;
-				
-			}
-		}
-	}
-	return 0;
-}
 
 int* g_Prc;
 int g_Prc1;
@@ -444,7 +56,6 @@ bool exists(const char *fname)
 	return false;
 }
 //----------------------------------------------------------------------------------------------------
-
 	
 int cs2 = spi.InitCS(CS1);
 int cs1 = spi.InitCS(CS2);
@@ -473,6 +84,7 @@ void Init(void)
 	g_Prc5 = 50;
 
 	spi.Init(MISO, MOSI, CLK);
+	InitMavlink();
 }
 
 void KeyUP(int* prc)
@@ -494,6 +106,7 @@ time_t now;
 
 int main(int argc, char const *argv[])
 {
+
 	if (argc == 1)
 	{
 		printf("No params\n");
@@ -502,81 +115,8 @@ int main(int argc, char const *argv[])
 
 	Init();
 
-	// debug = true;
-	// verbose = true;
-
-	//========================================
-	//				MAVLINK
-	//========================================
-	/* default values for arguments */
-	char *uart_name = (char*)"/dev/ttySAC3";
-	int baudrate = 57600;
-	const char *commandline_usage = "\tusage: %s -d <devicename> -b <baudrate> [-v/--verbose] [--debug]\n\t\tdefault: -d %s -b %i\n";
-
-	/* read program arguments */
-
-	// Open the serial port.
-	if (!silent) printf("Trying to connect to %s.. ", uart_name);
-	fflush(stdout);
-
-	fd = open_port(uart_name);
-	if (fd == -1)
-	{
-		if (!silent) printf("failure, could not open port.\n");
-		exit(EXIT_FAILURE);
-	}
-	else
-	{
-		if (!silent) printf("success.\n");
-	}
-	if (!silent) printf("Trying to configure %s.. ", uart_name);
-	bool setup = setup_port(fd, baudrate, 8, 1, false, false);
-	if (!setup)
-	{
-		if (!silent) printf("failure, could not configure port.\n");
-		exit(EXIT_FAILURE);
-	}
-	else
-	{
-		if (!silent) printf("success.\n");
-	}
-
-	int noErrors = 0;
-	if (fd == -1 || fd == 0)
-	{
-		if (!silent) fprintf(stderr, "Connection attempt to port %s with %d baud, 8N1 failed, exiting.\n", uart_name, baudrate);
-		exit(EXIT_FAILURE);
-	}
-	else
-	{
-		if (!silent) fprintf(stderr, "\nConnected to %s with %d baud, 8 data bits, no parity, 1 stop bit (8N1)\n", uart_name, baudrate);
-	}
-	
-	if(fd < 0)
-	{
-		exit(noErrors);
-	}
-
-	// Run indefinitely while the serial loop handles data
-	if (!silent) printf("\nREADY, waiting for serial data.\n");
-
-	mavlink_system.sysid = 1;                   ///< ID 20 for this airplane
-	mavlink_system.compid = MAV_COMP_ID_IMU;     ///< The component sending the message is the IMU, it could be also a Linux process
-	mavlink_system.type = MAV_TYPE_GCS;   ///< This system is an airplane / fixed wing
-
-	mavlink_msg_heartbeat_pack(mavlink_system.sysid, mavlink_system.compid, &msgg, system_type, autopilot_type, system_mode, custom_mode, system_state);
-	uint16_t len = mavlink_msg_to_send_buffer(bufg, &msgg);
-	write(fd, bufg, len);
-	int head;
-	while(compass == 0)	serial_wait(fd);
-	head = compass;
-	printf("Head: %d\n", head);
-	// while(1)
-	// {
-	// 	serial_wait(fd);
-	// 	printf("Compass: %d\n", compass);
-	// }
-	//========================================
+	// // debug = true;
+	// // verbose = true;
 
 	//========================================
 	//			ИНИЦИАЛИЗАЦИЯ КАМЕР
@@ -760,17 +300,23 @@ int main(int argc, char const *argv[])
 	//==========================================
 
 	// Для новой батареии - 68, старая - 74
-	int thr = 68;
+	int thr = 80;
+	if (thr > 74)
+	{
+		thr = 80;
+		printf("Превышение тяги!\n");
+	}
+	float data;
 	// if ((argc > 1) && (strcmp(argv[1],"kt3") == 0 || strcmp(argv[1], "sonar") == 0 || strcmp(argv[1], "cam") == 0 || strcmp(argv[1], "up") == 0))
 	if ((argc > 1) && strcmp(argv[1],"test") && strcmp(argv[1],"arm"))
 	{
-		printf("Взлет\n");
 		
+		printf("Взлет\n");
 
-		THROTTLE_SET(46);
-		Delay(2);
-		THROTTLE_SET(thr);
-		Delay(2);
+		// THROTTLE_SET(46);
+		// Delay(2);
+		// THROTTLE_SET(thr);
+		// Delay(2);
 
 
 		////////////////////Получение изображения маркера. Должно быть вызвано однажды над кругом после старта.
@@ -795,8 +341,78 @@ int main(int argc, char const *argv[])
 		// Throttle, Time, Alt
 		// Для новой батареии Alt - 54, старая - 58
 
-		LiftUp(thr, 2, 54);
+		// LiftUp(thr, 2, 55);
+//-------------------------------
+		// int flyThr = 46;
+		// int max;
+		// max = flyThr;
+		// float curh;
+		// curh = ReadSonar(SONAR1);
+		// printf("Высота: %f\n", curh);
+		// float dat;
+		// usleep(1000);
+		// while (curh < 100)
+		// {
+		// 	dat = ReadSonar(SONAR1);
+		// 	// printf("%d\t", i);
+		// 	// printf("%d\n", FlyProfile(i));
+		// 	if ((dat - curh) < 1)
+		// 	{
+		// 		flyThr++;
+		// 		max = flyThr;
+		// 	}
+		// 	else 
+		// 	{	
+		// 		if (FlyProfile(dat) < max) flyThr = max;
+		// 		else 
+		// 		{
+		// 			flyThr = FlyProfile(dat);
+		// 			max = flyThr;
+		// 		}
+		// 	}
+		// 	if (flyThr > thr) flyThr = thr;
+		// 	printf("Fly throttle: %d\t", flyThr);
+		// 	printf("Sonar: %f\n", dat);
+		// 	THROTTLE_SET(flyThr);
+		// 	curh = dat;
+		// 	usleep(10000);
+		// }
+
+		time_t fly = time(0);
+		printf("Time 1: %d\t", fly);
+		for (int h = 20; h < 150; h++)
+		{
+			THROTTLE_SET(FlyProfile(h));
+			// printf("Throttle %d\n", FlyProfile(h));
+			usleep(500);
+		}
+		fly = time(0);
+		printf("Time 2: %d\n", fly);
+
+		MODE_SET(100);
+		THROTTLE_SET(54);
+		printf("Режим.\n");
+		//-------------------------------
+
+
 		
+		//ВЗЛЕТ ПО ПОКАЗАНИЯМ НИЖНЕГО СОНАРА (НЕ РАБОТАЕТ, Т.К. ВЫДАЕТСЯ НЕПОНЯТНАЯ ОШИБКА)
+		
+		// data = ReadSonar(SONAR1);
+		// while (data < 110)
+		// {
+		
+		// 	data = ReadSonar(SONAR1);
+		
+		// 	// for (int i = 0; i < 10; ++i)
+		// 	// 	{
+		// 	// 		usleep(1000);
+		// 	// 	}			
+		// }
+
+		// MODE_SET(100);
+		// printf("Режим.\n");
+		// THROTTLE_SET(54);
 	}
 
 	//==========================================
@@ -806,16 +422,20 @@ int main(int argc, char const *argv[])
 	{
 		float data;
 		int asd = 0;
-		while(asd < 10)
+		while(asd < 1000)
 		{
 			asd++;
 			data = ReadSonar(SONAR1);
 			printf("Нижний сонар: - %f : ", data);
+			data = ReadSonar(L_SONAR);
+			printf("Левый сонар: - %f\n", data);
 			data = ReadSonar(R_SONAR);
 			printf("Правый сонар: - %f : ", data);
 			data = ReadSonar(F_SONAR);
-			printf("Передний сонар: - %f\n", data);
-			for (int i = 0; i < 300; ++i)
+			printf("Передний сонар: - %f : ", data);
+			data = ReadSonar(B_SONAR);
+			printf("Задний сонар: - %f : ", data);
+			for (int i = 0; i < 10; ++i)
 			{
 				usleep(1000);
 			}
@@ -853,7 +473,7 @@ int main(int argc, char const *argv[])
 			del++;
 			frame2 = cvQueryFrame(capture2);
 			// serial_wait(fd);
-			// printf("Compass delay: %d\n", compass);
+			// printf("Compass delay: %d\n", g_Compass);
 		}
 		PITCH_SET(FR_PITCH - 10);
 		////////////////////Функция получения цветов пола. Должна быть вызвана единожды в месте, где точно нет маркера.	
@@ -917,13 +537,13 @@ int main(int argc, char const *argv[])
 				int koef = 2;
 				for (int i = 0; i < 10; ++i)
 				{
-					serial_wait(fd);
+					serial_wait();
 				}
-				printf("Compass: %d \t Head: %d", compass, head);
-				if ((compass - head) < 0)
+				printf("Compass: %d \t Head: %d", g_Compass, g_Head);
+				if ((g_Compass - g_Head) < 0)
 				{
 					printf("\tВправо YAW\n");
-					YAW_SET(FR_YAW - (compass - head) * koef);
+					YAW_SET(FR_YAW - (g_Compass - g_Head) * koef);
 					for (int i = 0; i < 50; ++i)
 					{
 						usleep(1000);
@@ -931,10 +551,10 @@ int main(int argc, char const *argv[])
 					YAW_SET(FR_YAW);
 				}
 				else
-				if ((compass - head) > 0)	
+				if ((g_Compass - g_Head) > 0)	
 				{
 					printf("\tВлево YAW\n");
-					YAW_SET(FR_YAW - (compass - head) * koef);
+					YAW_SET(FR_YAW - (g_Compass - g_Head) * koef);
 					for (int i = 0; i < 50; ++i)
 					{
 						usleep(1000);
@@ -1321,16 +941,16 @@ int main(int argc, char const *argv[])
 		}
 
 		//Поворот по компасу на 90 градусов
-		// while(compass == 0)	serial_wait(fd);
+		// while(g_Compass == 0)	serial_wait(fd);
 
-		/*printf("Compass1: %d\n", compass);
+		/*printf("Compass1: %d\n", g_Compass);
 		int deg;
-		if (compass < 90) deg = 360 - (90 - compass);
-		else deg = compass - 90;
+		if (g_Compass < 90) deg = 360 - (90 - g_Compass);
+		else deg = g_Compass - 90;
 		printf("Азимут первого поворота: %d\n", deg);
 		int dc = 5;
 		YAW_SET(FR_YAW-4);
-		while (compass > (deg + dc))
+		while (g_Compass > (deg + dc))
 		{
 			serial_wait(fd);
 		}		
@@ -1360,61 +980,73 @@ int main(int argc, char const *argv[])
 		int diffUF = 0;
 
 		PITCH_SET(FR_PITCH - 10);
-		while ((now - diff) < 20)
-		{
+		while ((now - diff) < 30)
+		{	
 			now = time(0);
-
-				int koef = 4;
-				// for (int i = 0; i < 10; ++i)
+			if ((now - diff) > 7)
+			{
+				FR_PITCH - 5;
+			}
+			printf("Sonar: %f\n", ReadSonar(SONAR1));
+			int koef = 4;
+			// for (int i = 0; i < 10; ++i)
+			// {
+				serial_wait();
+			// }
+			printf("Compass: %d Head: %d\t", g_Compass, g_Head);
+			if ((g_Compass - g_Head) < 0)
+			{
+				int kr = 1;
+				printf("Вправо YAW; ");
+				if ((int)(FR_YAW - (g_Compass - g_Head) * koef * kr) < 0)
+				{
+					YAW_SET(0);	
+				}
+				else
+				if ((int)(FR_YAW - (g_Compass - g_Head) * koef * kr) > 100)
+				{
+					YAW_SET(100);	
+				}
+				else YAW_SET(FR_YAW - (g_Compass - g_Head) * koef * kr);
+				// for (int i = 0; i < 50; ++i)
 				// {
-					serial_wait(fd);
+				int kroll = 1;
+				// ROLL_SET(FR_ROLL + 1 * kroll);
+				printf("Roll: %d\t", FR_ROLL + 1 * kroll);
+				usleep(1000);
 				// }
-				printf("Compass: %d Head: %d\t", compass, head);
-				if ((compass - head) < 0)
+				YAW_SET(FR_YAW);
+				// ROLL_SET(FR_ROLL);
+			}
+			else
+			if ((g_Compass - g_Head) > 0)	
+			{
+				int kl = 1;
+				printf("Влево YAW\t");
+				if ((int)(FR_YAW - (g_Compass - g_Head) * koef * kl) < 0)
 				{
-					int kr = 1;
-					printf("Вправо YAW\t");
-					if ((int)(FR_YAW - (compass - head) * koef * kr) < 0)
-					{
-						YAW_SET(0);	
-					}
-					else
-					if ((int)(FR_YAW - (compass - head) * koef * kr) > 100)
-					{
-						YAW_SET(100);	
-					}
-					else YAW_SET(FR_YAW - (compass - head) * koef * kr);
-					// for (int i = 0; i < 50; ++i)
-					// {
-						usleep(1000);
-					// }
-					YAW_SET(FR_YAW);
+					YAW_SET(0);	
 				}
 				else
-				if ((compass - head) > 0)	
+				if ((int)(FR_YAW - (g_Compass - g_Head) * koef * kl) > 100)
 				{
-					int kl = 1;
-					printf("Влево YAW\t");
-					if ((int)(FR_YAW - (compass - head) * koef * kl) < 0)
-					{
-						YAW_SET(0);	
-					}
-					else
-					if ((int)(FR_YAW - (compass - head) * koef * kl) > 100)
-					{
-						YAW_SET(100);	
-					}
-					else YAW_SET(FR_YAW - (compass - head) * koef * kl);
-					// for (int i = 0; i < 50; ++i)
-					// {
-						usleep(1000);
-					// }
-					YAW_SET(FR_YAW);
+					YAW_SET(100);	
 				}
-				else
-				{
-					printf("Середина YAW\t\n");
-				}
+				else YAW_SET(FR_YAW - (g_Compass - g_Head) * koef * kl);
+				// for (int i = 0; i < 50; ++i)
+				// {
+				int kroll = 1;
+				// ROLL_SET(FR_ROLL - 1 * kroll);
+				printf("Roll: %d\t", FR_ROLL - 1 * kroll);
+				usleep(1000);
+				// }
+				YAW_SET(FR_YAW);
+				// ROLL_SET(FR_ROLL);
+			}
+			else
+			{
+				printf("Середина YAW\t\n");
+			}
 
 			float data3;
 			data3 = ReadSonar(R_SONAR);
@@ -1429,8 +1061,11 @@ int main(int argc, char const *argv[])
 			if (data3 < 150)
 			{
 				printf("Влево ");
-				// ROLL_SET(FR_ROLL - 10);
-				usleep(1000);
+				// ROLL_SET(FR_ROLL - 15);
+				// for (int i = 0; i < 10; ++i)
+				// {
+					// usleep(1000);
+				// }
 				//Выравнивание
 				// ROLL_SET(FR_ROLL);
 			}
@@ -1438,9 +1073,12 @@ int main(int argc, char const *argv[])
 			if (data3 > 250)
 			{
 				printf("Вправо\t");
-				// ROLL_SET(FR_ROLL + 10);
-				usleep(1000);
-				//Выравнивание
+				// ROLL_SET(FR_ROLL + 15);
+				// for (int i = 0; i < 10; ++i)
+				// {
+					// usleep(1000);
+				// }
+				// //Выравнивание
 				// ROLL_SET(FR_ROLL);
 			}
 
@@ -1448,7 +1086,7 @@ int main(int argc, char const *argv[])
 			printf("Data F: - %f ", data3);
 			printf("Разница F: %f", data3 - diffUF);
 			diffUF = data3;
-			if (data3 < 380)
+			if (data3 < 200)
 			{
 				printf("Посадка\n");
 				PITCH_SET(FR_PITCH + 10);
@@ -1465,81 +1103,7 @@ int main(int argc, char const *argv[])
 
 		Delay(1);
 		PITCH_SET(FR_PITCH);	
-		// Disarmed();
-		// return 0;
-
-		// dif = time(0);
-		// PITCH_SET(FR_PITCH - 11);
-		// Delay(5);
-		// PITCH_SET(FR_PITCH + 9);
-		// Delay(1);
-		// PITCH_SET(FR_PITCH);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-		// dif = time(0);
-		// printf("Hover\n");
-		// Delay(2);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-
-
-		// dif = time(0);
-		// ROLL_SET(FR_ROLL - 6);
-		// Delay(3);
-		// ROLL_SET(FR_ROLL + 13);
-		// Delay(1);
-		// for (int i = 0; i < 500; ++i)
-		// {
-		// 	usleep(1000);
-		// }
-		// ROLL_SET(FR_ROLL);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-		// dif = time(0);
-		// printf("Hover\n");
-		// Delay(1);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-
-
-
-		// dif = time(0);
-		// ROLL_SET(FR_ROLL + 12);
-		// Delay(5);
-		// ROLL_SET(FR_ROLL - 6);
-		// Delay(1);
-		// for (int i = 0; i < 500; ++i)
-		// {
-		// 	usleep(1000);
-		// }
-		// ROLL_SET(FR_ROLL);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-		// dif = time(0);
-		// printf("Hover\n");
-		// Delay(1);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-		// dif = time(0);
-		// PITCH_SET(FR_PITCH + 4);
-		// Delay(5);
-		// PITCH_SET(FR_PITCH - 7);
-		// Delay(1);
-		// PITCH_SET(FR_PITCH);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
-
-		// dif = time(0);
-		// printf("Hover\n");
-		// Delay(2);
-		// now = time(0);
-		// printf("Время: %d с\n", now - dif);
+	
 	}
 
 	//==========================================
@@ -1555,19 +1119,36 @@ int main(int argc, char const *argv[])
 		// PITCH_SET(FR_PITCH);
 
 		// Throttle, Time
-		LiftDown(thr, 1);
+//		LiftDown(thr, 1);
+		MODE_SET(0);
+
+		while(thr > 40 && ReadSonar(SONAR1) > 40)
+		{
+			printf("Высота: %f, ", ReadSonar(SONAR1));
+			thr -= 7;
+			printf("%d, ", thr);
+			THROTTLE_SET(thr);
+			usleep(30000);
+			thr += 7;
+			printf("%d\n", thr);
+			THROTTLE_SET(thr);
+			usleep(30000);
+			thr -= 1;
+		}
+		THROTTLE_SET(54);
+		usleep(50000);
+		THROTTLE_SET(0);
+
+
+
 		printf("Двигатели отключены\n");
 		system("date");		
-		asd = 0;
-		while (asd < 3)
-		{
-			asd++;
-			serial_wait(fd);
-			printf("Compass: %d\n", compass);	
-		}
+		serial_wait();
+		printf("Compass: %d\n", g_Compass);	
 
 	}
-	close_port(fd);
+	// close_port(fd);
+	CloseMavlink();
 	//==========================================
 	//		   		РУЧНОЙ РЕЖИМ
 	//==========================================
@@ -1757,5 +1338,22 @@ int main(int argc, char const *argv[])
 
 void Delay(int time)
 {
-	for (int i = 0; i < time*1000; i++) usleep(1000);
+	sleep(time);
+}
+
+int FlyProfile(float h)
+{
+	float norm_deg;
+	float deg;
+	float rad;
+	float sinus;
+	float thr;
+
+	norm_deg = 0.4;
+	deg = (h - 20) * norm_deg;
+	rad = deg / 57.2974693618;
+	sinus = sin(rad);
+	thr = (int)(46 + 28 * sinus);
+
+	return thr;
 }

@@ -10,6 +10,7 @@
 
 #include "msp_pwm.h"
 #include "spi.h"
+#include <stdio.h>
 
 // =============================================================================
 //                                 Отладка
@@ -53,6 +54,17 @@ void SetSPI2PWM(int* bufChan, char channels)
 void SetSPI (int value, int chan)
 {
 
+	if (value > 2230)
+	{
+		value = 2230;
+		printf("Превышен ШИМ!\n");
+	}
+	else
+	if (value < 0)
+	{
+		value = 0;
+		printf("Занижен ШИМ!\n");
+	}
 	spi.ClrCS(0);
 	spi.SetCS(0);
 	spi.ClrCS(0);

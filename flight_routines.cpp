@@ -3,6 +3,7 @@
 #include "flight_routines.h"
 #include "msp_pwm.h"
 #include "main.h"
+#include "sonar.h"
 
 int  chan_buf[5];
 
@@ -34,7 +35,7 @@ void LiftUp(int throttle, char time, int alt)
 	// }
 	// THROTTLE_SET(throttle);
 	// Delay(time);
-
+		
 	MODE_SET(100);
 	printf("Режим.\n");
 	THROTTLE_SET(alt);
